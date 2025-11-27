@@ -23,8 +23,8 @@ import einops as E
 import torch.nn.functional as F
 
 # Local imports
-from ..utils.init import reset_conv2d_parameters
-from ..utils import get_nonlinearity, make_noise, gvector_spatial_expansion
+from .utils.init import reset_conv2d_parameters
+from .utils.utils import get_nonlinearity, make_noise, gvector_spatial_expansion
 
 
 class ConvOp(nn.Module):

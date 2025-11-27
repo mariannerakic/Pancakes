@@ -9,7 +9,8 @@ __all__ = [
 import torch
 from torch import nn
 import einops as E
-import brunch
+
+from .utils.utils import make_sin_position_embedding_frequencies, make_timesteps, compute_sin_embeddings, gvector_spatial_expansion
 
 
 class SinPositionEmbedding(nn.Module):
@@ -44,25 +45,25 @@ class SinPositionEmbedding(nn.Module):
         """
 
         # Compute the frequencies of the sinusoids
-        embedding_frequencies = brunch.utils.make_sin_position_embedding_frequencies(
+        embedding_frequencies = make_sin_position_embedding_frequencies(
             n_embeddings=self.G,
             n_timesteps=K,
         )
 
         # Compute the normalized timesteps (with the correct shape wrt freqs)
-        timesteps = brunch.utils.make_timesteps(
+        timesteps = make_timesteps(
             n_embeddings=self.G,
             n_timesteps=K,
         )
 
         # Compute the embeddings
-        embeddings = brunch.utils.compute_sin_embeddings(embedding_frequencies, timesteps)
+        embeddings = compute_sin_embeddings(embedding_frequencies, timesteps)
 
         # Add batch dimension
         embeddings = E.repeat(embeddings, 'K G -> B K G', B=B)
 
         # Expand the embeddings to match the shape of the input tensor
-        expanded = brunch.utils.gvector_spatial_expansion(
+        expanded = gvector_spatial_expansion(
             interacted_noise=embeddings,
             spatial=spatial,
         )

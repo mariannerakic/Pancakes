@@ -5,18 +5,43 @@ from typing import Optional
 import torch
 import einops as E
 from torch import nn
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 
 
 # Local imports
 # from .multi_conv import MaxPool2d, Upsample
 import neurite as ne
 from .modules import ConvOp, MultiConvOp
-from ..utils.utils import reshape_features_to_k, make_joint_embeddings
+from .utils.utils import reshape_features_to_k, make_joint_embeddings
 from .position_embeddings import SinPositionEmbedding
-from ..utils.utils import get_nonlinearity
+from .utils.utils import get_nonlinearity
 from .activations import LogSoftmaxClass, SoftmaxClass
 
+
+def get_finalnonlinearity(nonlinearity: Optional[str], dim: Optional[int]=1) -> torch.nn.Module:
+    if nonlinearity is None:
+        return torch.nn.Identity()
+    
+    elif nonlinearity == 'logSoftmax':
+        print('LogSoftmax activation selected for final layer')
+        return LogSoftmaxClass(dim=dim)
+    
+    elif nonlinearity == "Softmax" or nonlinearity == "softmax":
+        print('Softmax activation selected for final layer')
+        # For Softmax, we need to specify the channel dimension
+        return SoftmaxClass(dim=dim)
+    
+    elif nonlinearity == "Sigmoid":
+        print('Sigmoid activation selected for final layer')
+        return torch.sigmoid
+
+    elif nonlinearity == "Identity":
+        print('Identity activation selected for final layer')
+        return torch.nn.Identity()
+        
+    if hasattr(torch.nn, nonlinearity):
+        return getattr(torch.nn, nonlinearity)()
+    raise ValueError(f"nonlinearity {nonlinearity} not found")
 
 
 class PancakeStochasticFusion(nn.Module):
@@ -200,83 +225,12 @@ class PancakeStochasticFusion(nn.Module):
         return stochastic_predictions
 
 
-def build_featurizer():
-        """
-        Build the featurizer
-        """
-
-        # Get the featurizer configuration
-        featurizer_config_dict = config.get(
-            'stochastic_fusion.featurizer'
-        ).to_dict()
-
-        # Get the __qualname__ from the featurizer configuration dict
-        featurizer_qualname = featurizer_config_dict.pop("_class", None)
-
-        # The featurizer config dict becomes the args for the featurizer
-        featurizer_kwargs = featurizer_config_dict
-
-        # Import from the __qualname__ and instantiate with kwargs
-        featurizer = absolute_import(
-            featurizer_qualname
-        )(**featurizer_kwargs)
-
-        return featurizer
-
-    def _build_stochastic_head(self):
-        """
-        Build the stochastic head
-        """
-
-        # Get the stochastic head configuration
-        head_config_dict = self.config.get(
-            'stochastic_fusion.stochastic_head'
-        ).to_dict()
-
-        head_qualname = head_config_dict.pop("_class", None)
-
-        # Get the number of output channels from the featurizer
-        featurizer_out_channels = self.config['stochastic_fusion']['featurizer']['out_channels']
-
-        # NEED TO MULTIPLY BY 2 B/C PROTOCOL AND
-        G = self.config['stochastic_fusion']['noise_module']['G'] * 2
-
-        # Override in channels with the correct number
-        head_config_dict['in_channels'] = featurizer_out_channels + G
-
-        stochastic_head = absolute_import(head_qualname)(**head_config_dict)
-
-        return stochastic_head
-
-    def _build_noise_module(self):
-        """
-        Build the noise module
-        """
-
-        # Get the noise module from the config
-        noise_module_config_dict = self.config.get(
-            'stochastic_fusion.noise_module'
-        ).to_dict()
-
-        # Get the qualified name from the `_class` attr
-        noise_module_qualname = noise_module_config_dict.pop("_class", None)
-
-        # Computed arguments for noise module
-        G = self.config['stochastic_fusion']['noise_module']['G']
-
-        # Derive quantities for the gvector module
-        if noise_module_qualname == 'buttermilk.nn.modules.GVectorModule':
-            noise_module_config_dict['attention_hidden_dims'] = G // 2
-
-        # Initialize from qualname and kwargs
-        noise_module = absolute_import(
-            noise_module_qualname
-        )(**noise_module_config_dict)
-
-        return noise_module
 
 
-def pancakes(version: Literal["v1"] = "v1", pretrained: bool = False) -> nn.Module:
+
+
+
+def pancakesmodel(version: Literal["v1"] = "v1", pretrained: bool = False) -> nn.Module:
     weights = {
             "v1": "https://github.com/mariannerakic/Pancakes/releases/download/weights/pancakes_v1_model_weights_Neurips.pt"
             }
@@ -291,7 +245,10 @@ def pancakes(version: Literal["v1"] = "v1", pretrained: bool = False) -> nn.Modu
 
         candidate_sampler = SinPositionEmbedding(G=6)
         protocol_sampler = SinPositionEmbedding(G=6)
-        stochastic_head = neurite.pytorch.modules.ConvBlock(
+        featurizer_out_channels = 32
+        G = 12
+        inchannels = featurizer_out_channels + G
+        stochastic_head = ne.modules.ConvBlock(in_channels=inchannels,
                                                             ndim=2,
                                                             out_channels=32,
                                                             order="cacaca",
@@ -302,7 +259,7 @@ def pancakes(version: Literal["v1"] = "v1", pretrained: bool = False) -> nn.Modu
             candidate_sampler=candidate_sampler,
             protocol_sampler=protocol_sampler,
             stochastic_head=stochastic_head,
-            **self.config['stochastic_fusion']['stochastic_fusion'].to_dict()
+            final_activation='Softmax',
         )
 
     if pretrained:

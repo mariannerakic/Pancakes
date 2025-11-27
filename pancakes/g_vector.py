@@ -9,8 +9,8 @@ __all__ = [
 import torch
 from torch import nn
 
-from brunch.nn.attention import SelfAttention
-from brunch.utils import make_noise, gvector_spatial_expansion
+from .attention import SelfAttention
+from .utils.utils import make_noise, gvector_spatial_expansion
 
 
 class GVectorModule(nn.Module):
