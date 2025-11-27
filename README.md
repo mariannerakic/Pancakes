@@ -1,3 +1,5 @@
+# ** ACCEPTED AT NEURIPS 2025**
+
 # Pancakes: Consistent Multi-Protocol Image Segmentation Across Biomedical Domains
 
 

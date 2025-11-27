@@ -1,9 +1,9 @@
 """
-Position Embeddings for the `brunch` project.
+Position Embeddings.
 """
 
 __all__ = [
-    "SinPositionEmbedding",             # From buttermilk
+    "SinPositionEmbedding",             
 ]
 
 import torch

@@ -11,10 +11,8 @@ from typing import Optional, Union, Literal
 # Local imports
 # from .multi_conv import MaxPool2d, Upsample
 import neurite as ne
-from .modules import ConvOp, MultiConvOp
-from .utils.utils import reshape_features_to_k, make_joint_embeddings
+from .utils.utils import make_joint_embeddings
 from .position_embeddings import SinPositionEmbedding
-from .utils.utils import get_nonlinearity
 from .activations import LogSoftmaxClass, SoftmaxClass
 
 
@@ -23,20 +21,16 @@ def get_finalnonlinearity(nonlinearity: Optional[str], dim: Optional[int]=1) -> 
         return torch.nn.Identity()
     
     elif nonlinearity == 'logSoftmax':
-        print('LogSoftmax activation selected for final layer')
         return LogSoftmaxClass(dim=dim)
     
     elif nonlinearity == "Softmax" or nonlinearity == "softmax":
-        print('Softmax activation selected for final layer')
         # For Softmax, we need to specify the channel dimension
         return SoftmaxClass(dim=dim)
     
     elif nonlinearity == "Sigmoid":
-        print('Sigmoid activation selected for final layer')
         return torch.sigmoid
 
     elif nonlinearity == "Identity":
-        print('Identity activation selected for final layer')
         return torch.nn.Identity()
         
     if hasattr(torch.nn, nonlinearity):
@@ -164,11 +158,6 @@ class PancakeStochasticFusion(nn.Module):
             B=B, S=S, C=Cout,
         )
 
-        # print(f'Unet output shape: {tensor.shape}')
-        # ne.plot.slices([*tensor[0, 0, :6, ...].cpu()], titles = ['b=0, s=0, c varies'])
-        # ne.plot.slices([*tensor[0, :, 0, ...].cpu()], titles = ['b=0, c=0, s varies'])
-
-        # print('tensor.shape: ', tensor.shape)
 
         # Add singletons to make room for protocol and candidate dims
         tensor = E.rearrange(                               # B S 1 1 C2 H W
@@ -176,7 +165,6 @@ class PancakeStochasticFusion(nn.Module):
             pattern='B S C H W -> B S 1 1 C H W',
             B=B, S=S, C=Cout,
         )
-        # print('tensor.shape: ', tensor.shape)
 
         # Repeat to match embedding dim
         tensor = E.repeat(                                  # B S M K C2 H W
